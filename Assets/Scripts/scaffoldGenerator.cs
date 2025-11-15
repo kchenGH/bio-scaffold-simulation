@@ -16,9 +16,12 @@ public class ScaffoldGenerator : MonoBehaviour
 
     private float nodeRadius;
 
+    void Awake()
+    {
+        nodeRadius = nodePrefab.GetComponent<SphereCollider>().radius * nodePrefab.transform.localScale.x;
+    }
     void Start()
     {
-        nodeRadius = GetNodeRadius(nodePrefab);
         GenerateBfsLattice();
     }
 
@@ -76,31 +79,35 @@ public class ScaffoldGenerator : MonoBehaviour
                 if (visited.Contains(next))
                     continue;
 
+                // Convert BFS grid coordinates to world
+                Vector3 prevPos = worldOrigin + new Vector3(cell.x, cell.y, cell.z) * spacing;
+                Vector3 nextPos = worldOrigin + new Vector3(next.x, next.y, next.z) * spacing;
+
+                // --- NEW: SphereCast between nodes to prevent tunneling ---
+                Vector3 castDirection = (nextPos - prevPos).normalized;
+
+                if (Physics.SphereCast(
+                        prevPos,
+                        nodeRadius * 0.95f,
+                        castDirection,
+                        out RaycastHit hit,
+                        spacing,
+                        obstacleMask))
+                {
+                    // Wall in-between → do NOT expand into this cell
+                    continue;
+                }
+
+                // --- OLD: CheckSphere remains for endpoint safety ---
+                if (Physics.CheckSphere(nextPos, nodeRadius, obstacleMask))
+                {
+                    continue;
+                }
+
+                // Accept cell
                 visited.Add(next);
                 queue.Enqueue(next);
             }
         }
-    }
-
-    // --- Utility: get node radius from prefab ---
-    private float GetNodeRadius(GameObject prefab)
-    {
-        // 1. Try SphereCollider
-        SphereCollider col = prefab.GetComponent<SphereCollider>();
-        if (col != null)
-        {
-            // assumes uniform scale
-            return col.radius * prefab.transform.localScale.x;
-        }
-
-        // 2. Fallback: Mesh bounds
-        MeshFilter mf = prefab.GetComponent<MeshFilter>();
-        if (mf != null && mf.sharedMesh != null)
-        {
-            return mf.sharedMesh.bounds.extents.x * prefab.transform.localScale.x;
-        }
-
-        Debug.LogWarning("ScaffoldGenerator: nodePrefab has no SphereCollider or MeshFilter. Using default radius 0.5f.");
-        return 0.5f;
     }
 }
