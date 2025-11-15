@@ -13,7 +13,7 @@ GameObject:
   m_Layer: 0
   m_Name: ScaffoldRoot
   m_TagString: Untagged
-  m_Icon: {fileID: 0}
+  m_Icon: {fileID: -5487077368411116049, guid: 0000000000000000d000000000000000, type: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
@@ -26,7 +26,7 @@ Transform:
   m_GameObject: {fileID: 4015065371577747001}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.48358, y: 0, z: -2.20203}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -45,6 +45,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 313bbab132050ba49a561daeb8056322, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  nodePrefab: {fileID: 6731224982354818048}
+  spacing: 1
+  gridSizeX: 10
+  gridSizeY: 10
+  gridSizeZ: 10
+  obstructionLayer:
+    serializedVersion: 2
+    m_Bits: 8
+  duplicateCheckLayer:
+    serializedVersion: 2
+    m_Bits: 64
 --- !u!1001 &3296715435683798252
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -105,5 +116,10 @@ PrefabInstance:
 --- !u!4 &4360729032966896945 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 1244157653924684253, guid: 93c0393597ad48d4191a20e37e3132d1, type: 3}
+  m_PrefabInstance: {fileID: 3296715435683798252}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &6731224982354818048 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8118393971954460908, guid: 93c0393597ad48d4191a20e37e3132d1, type: 3}
   m_PrefabInstance: {fileID: 3296715435683798252}
   m_PrefabAsset: {fileID: 0}
