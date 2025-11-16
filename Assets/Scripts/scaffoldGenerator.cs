@@ -5,6 +5,11 @@ public class ScaffoldGenerator : MonoBehaviour
 {
     public GameObject nodePrefab;
     public Transform scaffoldRoot;
+
+    [Header("Collision")]
+    public LayerMask obstacleMask;
+    public bool blockBehindWalls = true;
+
     [Header("Regeneration")]
     public bool enableRegenerationHotkey = true;
     public KeyCode regenerateKey = KeyCode.Return;   // Enter key
@@ -67,6 +72,25 @@ public class ScaffoldGenerator : MonoBehaviour
 
             if (n > poreThreshold)
             {
+                // --- 1. Skip if inside a wall ---
+                if (Physics.CheckSphere(worldPos, spacing * 0.45f, obstacleMask))
+                {
+                    continue;
+                }
+
+                // --- 2. Optional: skip nodes behind walls ---
+                if (blockBehindWalls)
+                {
+                    Vector3 dir = (worldPos - origin).normalized;
+
+                    if (Physics.Raycast(origin, dir, out RaycastHit hit, Vector3.Distance(origin, worldPos), obstacleMask))
+                    {
+                        // A wall blocks the path from the scaffold center to this point
+                        continue;
+                    }
+                }
+
+                // --- Instantiate scaffold node ---
                 Instantiate(nodePrefab, worldPos, Quaternion.identity, scaffoldRoot);
             }
         }
