@@ -1,188 +1,70 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 public class ScaffoldGenerator : MonoBehaviour
 {
-    [Header("Prefabs & Hierarchy")]
     public GameObject nodePrefab;
     public Transform scaffoldRoot;
-    [Header("Lattice Settings")]
-    public float spacing = 1f;           // distance between nodes
-    public int maxDistance = 10;         // max |x| / |y| / |z| in grid cells
+    [Header("Volume Settings")]
+    public int size = 25;           // +/- range on each axis
+    public float spacing = 1.0f;
 
-    [Header("Collision")]
-    public LayerMask obstacleMask;       // set this to your wall/obstacle layer in Inspector
-
-    private float nodeRadius;
-    private Vector3 worldOrigin;
-
-    // ----------------------------
-    // ADVANCED POROSITY SETTINGS
-    // ----------------------------
-    [Header("Porosity: Voronoi")]
-    public int voronoiSeedCount = 15;
+    [Header("Porosity Noise")]
+    public float noiseScale = 0.1f;
     [Range(0f, 1f)]
-    public float voronoiPoreSize = 0.35f;
-
-    [Header("Porosity: Fiber Alignment")]
-    public Vector3 fiberDirection = new Vector3(1, 0, 0);   // X-direction fibers
-    [Range(0f, 1f)]
-    public float fiberThreshold = 0.35f;                    // lower = more strict alignment
-
-    [Header("Porosity: Random Mixing")]
-    [Range(0f, 1f)]
-    public float randomPoreChance = 0.05f;
-
-    private List<Vector3> voronoiCenters;
-
-    // ----------------------------
-
-    void Awake()
-    {
-        nodeRadius = nodePrefab.GetComponent<SphereCollider>().radius * nodePrefab.transform.localScale.x;
-    }
+    public float poreThreshold = 0.45f;
 
     void Start()
     {
-        worldOrigin = transform.position;
-        GenerateVoronoiSeeds();
-        GenerateBfsLattice();
+        GenerateFoamScaffold();
     }
 
-    // --- Generate Voronoi Seeds ---
-    private void GenerateVoronoiSeeds()
+    void GenerateFoamScaffold()
     {
-        voronoiCenters = new List<Vector3>();
+        Vector3 origin = transform.position;
 
-        for (int i = 0; i < voronoiSeedCount; i++)
+        for (int x = -size; x <= size; x++)
+        for (int y = -size; y <= size; y++)
+        for (int z = -size; z <= size; z++)
         {
-            Vector3 offset = new Vector3(
-                Random.Range(-maxDistance, maxDistance),
-                Random.Range(-maxDistance, maxDistance),
-                Random.Range(-maxDistance, maxDistance)
-            );
+            Vector3 worldPos = origin + new Vector3(x, y, z) * spacing;
 
-            voronoiCenters.Add(worldOrigin + offset * spacing);
-        }
-    }
+            float n = Worley3D(worldPos * noiseScale);
 
-    // --- Porosity helpers ---
-    private bool IsVoronoiPore(Vector3 worldPos)
-    {
-        float minDist = float.MaxValue;
-
-        foreach (var seed in voronoiCenters)
-        {
-            float d = Vector3.Distance(worldPos, seed);
-            if (d < minDist) minDist = d;
-        }
-
-        float normalized = minDist / (spacing * maxDistance);
-        return normalized < voronoiPoreSize;
-    }
-
-    private bool IsFiberPore(Vector3 worldPos)
-    {
-        Vector3 dirFromOrigin = (worldPos - worldOrigin).normalized;
-        float alignment = Mathf.Abs(Vector3.Dot(dirFromOrigin, fiberDirection.normalized));  // 1 = aligned
-        return alignment < fiberThreshold;
-    }
-
-    private bool ShouldRemoveNode(Vector3 worldPos)
-    {
-        if (Random.value < randomPoreChance)
-            return true;
-
-        if (IsVoronoiPore(worldPos))
-            return true;
-
-        if (IsFiberPore(worldPos))
-            return true;
-
-        return false;
-    }
-
-    // --- BFS Lattice Generation ---
-    private void GenerateBfsLattice()
-    {
-        Queue<Vector3Int> queue = new Queue<Vector3Int>();
-        HashSet<Vector3Int> visited = new HashSet<Vector3Int>();
-
-        Vector3Int originCell = Vector3Int.zero;
-        queue.Enqueue(originCell);
-        visited.Add(originCell);
-
-        Vector3Int[] directions =
-        {
-            Vector3Int.right,
-            Vector3Int.left,
-            Vector3Int.up,
-            Vector3Int.down,
-            Vector3Int.forward,
-            Vector3Int.back
-        };
-
-        while (queue.Count > 0)
-        {
-            Vector3Int cell = queue.Dequeue();
-
-            // Limit BFS extent
-            if (Mathf.Max(Mathf.Abs(cell.x), Mathf.Abs(cell.y), Mathf.Abs(cell.z)) > maxDistance)
-                continue;
-
-            Vector3 worldPos = worldOrigin + new Vector3(cell.x, cell.y, cell.z) * spacing;
-
-            // If this cell is inside an obstacle, skip it and do NOT expand neighbors
-            if (Physics.CheckSphere(worldPos, nodeRadius, obstacleMask))
-                continue;
-
-            // Decide if this cell is a pore (but NEVER pore the origin)
-            bool isOrigin = (cell == originCell);
-            bool isPore = false;
-            if (!isOrigin)
-            {
-                isPore = ShouldRemoveNode(worldPos);
-            }
-
-            // Place node only if not a pore
-            if (!isPore)
+            if (n > poreThreshold)
             {
                 Instantiate(nodePrefab, worldPos, Quaternion.identity, scaffoldRoot);
             }
-
-            // Enqueue neighbors regardless of pore status:
-            // pores are empty space but should still allow growth through them
-            foreach (Vector3Int dir in directions)
-            {
-                Vector3Int next = cell + dir;
-
-                if (visited.Contains(next))
-                    continue;
-
-                Vector3 prevPos = worldOrigin + new Vector3(cell.x, cell.y, cell.z) * spacing;
-                Vector3 nextPos = worldOrigin + new Vector3(next.x, next.y, next.z) * spacing;
-
-                Vector3 castDirection = (nextPos - prevPos).normalized;
-
-                // Prevent tunneling through thin walls
-                if (Physics.SphereCast(
-                        prevPos,
-                        nodeRadius * 0.95f,
-                        castDirection,
-                        out RaycastHit hit,
-                        spacing,
-                        obstacleMask))
-                {
-                    continue;
-                }
-
-                // Extra safety: don't move into an occupied cell
-                if (Physics.CheckSphere(nextPos, nodeRadius, obstacleMask))
-                    continue;
-
-                visited.Add(next);
-                queue.Enqueue(next);
-            }
         }
+    }
+
+    // --- 3D Worley Noise (Cellular Noise) ---
+    float Worley3D(Vector3 p)
+    {
+        int xi = Mathf.FloorToInt(p.x);
+        int yi = Mathf.FloorToInt(p.y);
+        int zi = Mathf.FloorToInt(p.z);
+
+        float minDist = 9999f;
+
+        for (int xo = -1; xo <= 1; xo++)
+        for (int yo = -1; yo <= 1; yo++)
+        for (int zo = -1; zo <= 1; zo++)
+        {
+            Vector3 cell = new Vector3(xi + xo, yi + yo, zi + zo);
+            Vector3 featurePoint = cell + RandomFloat3(cell);
+            float d = Vector3.Distance(p, featurePoint);
+            if (d < minDist) minDist = d;
+        }
+
+        return Mathf.Clamp01(minDist);
+    }
+
+    Vector3 RandomFloat3(Vector3 seed)
+    {
+        float x = Mathf.Abs(Mathf.Sin(Vector3.Dot(seed, new Vector3(12.9898f, 78.233f, 37.719f))) * 43758.5453f);
+        float y = Mathf.Abs(Mathf.Sin(Vector3.Dot(seed, new Vector3(93.9898f, 67.345f, 12.345f))) * 24634.6345f);
+        float z = Mathf.Abs(Mathf.Sin(Vector3.Dot(seed, new Vector3(56.123f, 98.765f, 43.543f))) * 35734.7345f);
+
+        return new Vector3(x % 1f, y % 1f, z % 1f);
     }
 }
