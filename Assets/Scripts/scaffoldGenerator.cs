@@ -1,9 +1,14 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class ScaffoldGenerator : MonoBehaviour
 {
     public GameObject nodePrefab;
     public Transform scaffoldRoot;
+    [Header("Regeneration")]
+    public bool enableRegenerationHotkey = true;
+    public KeyCode regenerateKey = KeyCode.Return;   // Enter key
+
     [Header("Volume Settings")]
     public int size = 25;           // +/- range on each axis
     public float spacing = 1.0f;
@@ -13,8 +18,35 @@ public class ScaffoldGenerator : MonoBehaviour
     [Range(0f, 1f)]
     public float poreThreshold = 0.45f;
 
+    [Header("Jitter")]
+    [Range(0f, 1f)]
+    public float positionJitter = 0.3f;   // 0=no jitter, ~0.3 ideal
+
+
     void Start()
     {
+        GenerateFoamScaffold();
+    }
+
+    void Update()
+    {
+        if (!enableRegenerationHotkey) return;
+
+        if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
+        {
+            RegenerateScaffold();
+        }
+    }
+
+    private void RegenerateScaffold()
+    {
+        // Clear old nodes
+        for (int i = scaffoldRoot.childCount - 1; i >= 0; i--)
+        {
+            Destroy(scaffoldRoot.GetChild(i).gameObject);
+        }
+
+        // Generate new noise field
         GenerateFoamScaffold();
     }
 
@@ -27,6 +59,9 @@ public class ScaffoldGenerator : MonoBehaviour
         for (int z = -size; z <= size; z++)
         {
             Vector3 worldPos = origin + new Vector3(x, y, z) * spacing;
+
+            // --- Add jitter to break grid artifacts ---
+            worldPos += Random.insideUnitSphere * spacing * positionJitter; 
 
             float n = Worley3D(worldPos * noiseScale);
 
