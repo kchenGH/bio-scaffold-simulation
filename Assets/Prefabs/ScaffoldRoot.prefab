@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2505844419867282367}
   - component: {fileID: 4825057561572391462}
+  - component: {fileID: 5279247859256628904}
   m_Layer: 0
   m_Name: ScaffoldRoot
   m_TagString: Untagged
@@ -46,6 +47,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   nodePrefab: {fileID: 8118393971954460908, guid: 93c0393597ad48d4191a20e37e3132d1, type: 3}
   scaffoldRoot: {fileID: 2505844419867282367}
+  connector: {fileID: 5279247859256628904}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 8
@@ -57,3 +59,18 @@ MonoBehaviour:
   noiseScale: 0.16
   poreThreshold: 0.75
   positionJitter: 0.55
+--- !u!114 &5279247859256628904
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4015065371577747001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4937408170b7cb418a4f6846d15c52f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ScaffoldConnector
+  scaffoldRoot: {fileID: 2505844419867282367}
+  spacing: 1.5
+  radiusMultiplier: 0.35

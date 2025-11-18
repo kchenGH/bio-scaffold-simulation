@@ -991,6 +991,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ScaffoldRoot (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 4015065371577747001, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4360729032966896945, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -1047,6 +1051,10 @@ PrefabInstance:
       propertyPath: voronoiSeedCount
       value: 6
       objectReference: {fileID: 0}
+    - target: {fileID: 5279247859256628904, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
+      propertyPath: spacing
+      value: 3
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 6731224982354818048, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
@@ -1101,9 +1109,25 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4126027426358390930, guid: a9383ea4c5f11c0439ffe2d0c7c0c2dc, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 208456ba1cbb48444ae0667440275a63, type: 2}
     - target: {fileID: 5519356523797613624, guid: a9383ea4c5f11c0439ffe2d0c7c0c2dc, type: 3}
       propertyPath: m_Name
       value: ScaffoldMeshRoot
+      objectReference: {fileID: 0}
+    - target: {fileID: 5519356523797613624, guid: a9383ea4c5f11c0439ffe2d0c7c0c2dc, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6747225496410027769, guid: a9383ea4c5f11c0439ffe2d0c7c0c2dc, type: 3}
+      propertyPath: size
+      value: 25
+      objectReference: {fileID: 0}
+    - target: {fileID: 6747225496410027769, guid: a9383ea4c5f11c0439ffe2d0c7c0c2dc, type: 3}
+      propertyPath: spacing
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 6747225496410027769, guid: a9383ea4c5f11c0439ffe2d0c7c0c2dc, type: 3}
       propertyPath: noiseScale

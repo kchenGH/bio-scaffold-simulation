@@ -6,6 +6,8 @@ public class ScaffoldGenerator : MonoBehaviour
     public GameObject nodePrefab;
     public Transform scaffoldRoot;
 
+    public ScaffoldConnector connector;
+
     [Header("Collision")]
     public LayerMask obstacleMask;
     public bool blockBehindWalls = true;
@@ -91,9 +93,16 @@ public class ScaffoldGenerator : MonoBehaviour
                 }
 
                 // --- Instantiate scaffold node ---
-                Instantiate(nodePrefab, worldPos, Quaternion.identity, scaffoldRoot);
+                var node = Instantiate(nodePrefab, worldPos, Quaternion.identity, scaffoldRoot);
+                connector.AddNode(node.transform);
             }
         }
+        // ============================================================
+        // STEP 4: Now that ALL nodes are created, connect and remove
+        // ============================================================
+        connector.spacing = spacing;
+        connector.BuildStruts();    // create cylinders
+        connector.DeleteNodes();    // delete spheres
     }
 
     // --- 3D Worley Noise (Cellular Noise) ---
