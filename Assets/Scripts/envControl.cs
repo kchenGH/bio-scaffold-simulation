@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class envControl : MonoBehaviour
+public class EnvControl : MonoBehaviour
 {
     [Range(0f, 1f)]
     public float opacity = 1f;
