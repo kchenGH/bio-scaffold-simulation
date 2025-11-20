@@ -29,6 +29,9 @@ public class ScaffoldGenerator : MonoBehaviour
     [Range(0f, 1f)]
     public float positionJitter = 0.3f;   // 0=no jitter, ~0.3 ideal
 
+    [Header("Mesh Generation")]
+    public MeshGenerator meshGenerator;
+
 
     void Start()
     {
@@ -101,8 +104,21 @@ public class ScaffoldGenerator : MonoBehaviour
         // STEP 4: Now that ALL nodes are created, connect and remove
         // ============================================================
         connector.spacing = spacing;
-        connector.BuildStruts();    // create cylinders
+        connector.BuildStruts();    // create cylinder DATA (no GameObjects)
         connector.DeleteNodes();    // delete spheres
+        
+        // ============================================================
+        // STEP 5: Trigger mesh generation from cylinder data
+        // ============================================================
+        if (meshGenerator != null)
+        {
+            Debug.Log("Triggering mesh generation from scaffold data...");
+            meshGenerator.RegenerateFromScaffold();
+        }
+        else
+        {
+            Debug.LogWarning("MeshGenerator reference not set in ScaffoldGenerator!");
+        }
     }
 
     // --- 3D Worley Noise (Cellular Noise) ---

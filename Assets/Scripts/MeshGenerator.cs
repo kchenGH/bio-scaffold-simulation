@@ -27,6 +27,14 @@ public class MeshGenerator : MonoBehaviour
     public bool enableRegenerationHotkey = true;
     public KeyCode regenerateKey = KeyCode.Return; // Enter
 
+    [Header("Scaffold Reference")]
+    public ScaffoldConnector connectorReference;
+
+    [Header("SDF Blending")]
+    [Range(0.3f, 0.8f)]
+    [Tooltip("Controls smoothness at cylinder joints. Lower = sharp, Higher = organic")]
+    public float blendRadius = 0.5f;
+
     public ComputeShader marchingCubesShader;
 
     // internal
@@ -34,6 +42,7 @@ public class MeshGenerator : MonoBehaviour
     private Vector3 origin;
     private float[,,] densityField;
     private MeshBuilder builder;
+    private int xRes, yRes, zRes; // cache dimensions
 
     void Awake()
     {
@@ -43,7 +52,8 @@ public class MeshGenerator : MonoBehaviour
     void Start()
     {
         origin = transform.position;
-        RegenerateScaffold();
+        // DON'T auto-regenerate - wait for ScaffoldGenerator
+        // RegenerateScaffold();
     }
 
     void Update()
@@ -57,8 +67,20 @@ public class MeshGenerator : MonoBehaviour
         }
     }
 
+    public void RegenerateFromScaffold()
+    {
+        Debug.Log("=== MeshGenerator: Starting regeneration from scaffold data ===");
+        RegenerateScaffold();
+    }
+
     private void RegenerateScaffold()
     {
+        // Initialize dimensions and density field
+        xRes = size * 2 + 1;
+        yRes = size * 2 + 1;
+        zRes = size * 2 + 1;
+        densityField = new float[xRes, yRes, zRes];
+
         BuildDensityField();
         BuildMeshFromDensity();
     }
@@ -68,82 +90,88 @@ public class MeshGenerator : MonoBehaviour
     // -----------------------------
     private void BuildDensityField()
     {
-        int dim = size * 2 + 1;
-        densityField = new float[dim, dim, dim];
-        // --------------------------
-        // Grid to Density Pass
-        // --------------------------
-        for (int ix = 0; ix < dim; ix++)
-        for (int iy = 0; iy < dim; iy++)
-        for (int iz = 0; iz < dim; iz++)
+        if (connectorReference == null)
         {
-            int gx = ix - size;
-            int gy = iy - size;
-            int gz = iz - size;
-
-            Vector3 localPos = new Vector3(gx, gy, gz);
-
-            Vector3 worldPos = origin + localPos * spacing;
-            Vector3 jitteredPos = worldPos + Random.insideUnitSphere * (spacing * positionJitter);
-
-            // ---------------------
-            // 3D MULTI-SCALE NOISE
-            // ---------------------
-
-            // Large-scale cell structure (big pores)
-            float w1 = Worley3D(localPos * noiseScale * 0.4f);
-            float w2 = Worley3D(localPos * noiseScale * 0.8f);
-
-            // Fine-scale details
-            float p1 = Perlin3D(localPos * noiseScale * 1.2f);
-            float p2 = Perlin3D(localPos * noiseScale * 2.5f);
-
-            // Blend noise into a foam-like field (0–1 range)
-            float noise =
-                0.45f * (1f - w1) +   // large smooth structures
-                0.25f * (1f - w2) +   // mid-range structure
-                0.20f * p1 +          // fine noise
-                0.10f * p2;           // very fine detail
-
-            noise = Mathf.Clamp01(noise);
-
-            // ---------------------
-            // WALL COLLISION
-            // ---------------------
-            if (Physics.CheckSphere(jitteredPos, spacing * 0.45f, obstacleMask))
-            {
-                noise = 0f;
-            }
-            else if (blockBehindWalls)
-            {
-                Vector3 dir = (jitteredPos - origin).normalized;
-                float dist = Vector3.Distance(origin, jitteredPos);
-
-                if (Physics.Raycast(origin, dir, dist, obstacleMask))
-                    noise = 0f;
-            }
-
-            // ---------------------
-            // SIGNED DENSITY
-            // ---------------------
-            densityField[ix, iy, iz] = noise - poreThreshold;
+            Debug.LogError("MeshGenerator: ScaffoldConnector reference is not set! Assign it in the Inspector.");
+            return;
         }
 
-        // --------------------------
-        // Gaussian Blur (1D – X Pass)
-        // --------------------------
+        List<(Vector3 start, Vector3 end, float radius)> cylinders = connectorReference.GetCylinderData();
+        
+        if (cylinders.Count == 0)
+        {
+            Debug.LogWarning("MeshGenerator: No cylinder data available. Run ScaffoldGenerator first.");
+            return;
+        }
+
+        Debug.Log($"Building SDF density field from {cylinders.Count} cylinders...");
+        Debug.Log($"Grid resolution: {xRes}x{yRes}x{zRes}, spacing: {spacing}");
+
+        int totalVoxels = xRes * yRes * zRes;
+        int processedVoxels = 0;
+        int lastPercent = 0;
+
+        for (int ix = 0; ix < xRes; ix++)
+        {
+            for (int iy = 0; iy < yRes; iy++)
+            {
+                for (int iz = 0; iz < zRes; iz++)
+                {
+                    Vector3 worldPos = new Vector3(
+                        (ix - size) * spacing + origin.x,
+                        (iy - size) * spacing + origin.y,
+                        (iz - size) * spacing + origin.z
+                    );
+
+                    float minDist = float.MaxValue;
+
+                    // Calculate minimum distance to all cylinders with smooth blending
+                    foreach (var cylinder in cylinders)
+                    {
+                        float dist = SDFCapsule(worldPos, cylinder.start, cylinder.end, cylinder.radius);
+                        
+                        if (minDist == float.MaxValue)
+                        {
+                            minDist = dist;
+                        }
+                        else
+                        {
+                            // Smooth blending creates organic joints like image 175741
+                            minDist = SmoothMin(minDist, dist, blendRadius);
+                        }
+                    }
+
+                    // Store negative distance (inside = negative, outside = positive)
+                    // Isosurface at 0 creates the mesh boundary
+                    densityField[ix, iy, iz] = -minDist;
+                    
+                    processedVoxels++;
+                    int percent = (processedVoxels * 100) / totalVoxels;
+                    if (percent > lastPercent && percent % 10 == 0)
+                    {
+                        Debug.Log($"Density field progress: {percent}%");
+                        lastPercent = percent;
+                    }
+                }
+            }
+        }
+
+        // Apply Gaussian blur for additional smoothing
+        Debug.Log("Applying Gaussian blur...");
+        ApplyBlur();
+        
+        Debug.Log("SDF density field built successfully.");
+    }
+
+    // -----------------------
+    // Helper: Apply 3D Gaussian Blur
+    // -----------------------
+    private void ApplyBlur()
+    {
+        int dim = xRes; // assuming cubic volume
         GaussianBlurX(dim);
         GaussianBlurY(dim);
         GaussianBlurZ(dim);
-
-        // Debug Density Range
-        float minV = 999f, maxV = -999f;
-        foreach (float v in densityField)
-        {
-            if (v < minV) minV = v;
-            if (v > maxV) maxV = v;
-        }
-        Debug.Log($"Density range after blur: {minV} → {maxV}");
     }
 
     // -----------------------------
@@ -151,6 +179,8 @@ public class MeshGenerator : MonoBehaviour
     // -----------------------------
     private void BuildMeshFromDensity()
     {
+        Debug.Log("=== Building mesh from density field ===");
+        
         int dim = size * 2 + 1;
         int voxelCount = dim * dim * dim;
         float[] flat = new float[voxelCount];
@@ -160,6 +190,8 @@ public class MeshGenerator : MonoBehaviour
         for (int y = 0; y < dim; y++)
         for (int z = 0; z < dim; z++)
             flat[idx++] = densityField[x, y, z];
+
+        Debug.Log($"Flattened {voxelCount} voxels into buffer");
 
         ComputeBuffer voxelBuffer = new ComputeBuffer(voxelCount, sizeof(float));
         voxelBuffer.SetData(flat);
@@ -174,11 +206,14 @@ public class MeshGenerator : MonoBehaviour
         }
 
         // Create new builder and run compute shader
+        Debug.Log("Creating MeshBuilder and running marching cubes...");
         builder = new MeshBuilder(dim, dim, dim, maxTris, marchingCubesShader);
         builder.BuildIsosurface(voxelBuffer, 0f, spacing);
 
         // IMPORTANT: keep the mesh alive
         meshFilter.sharedMesh = builder.Mesh;
+        
+        Debug.Log($"Mesh generated: {builder.Mesh.vertexCount} vertices, {builder.Mesh.triangles.Length / 3} triangles");
 
         voxelBuffer.Dispose();
     }
@@ -313,5 +348,25 @@ public class MeshGenerator : MonoBehaviour
         }
 
         densityField = blurred;
+    }
+
+    /// <summary>
+    /// Signed Distance Function for a capsule (cylinder with rounded ends)
+    /// </summary>
+    private float SDFCapsule(Vector3 p, Vector3 a, Vector3 b, float radius)
+    {
+        Vector3 pa = p - a;
+        Vector3 ba = b - a;
+        float h = Mathf.Clamp01(Vector3.Dot(pa, ba) / Vector3.Dot(ba, ba));
+        return Vector3.Distance(p, a + ba * h) - radius;
+    }
+
+    /// <summary>
+    /// Smooth minimum function for metaball-style blending at joints
+    /// </summary>
+    private float SmoothMin(float d1, float d2, float k)
+    {
+        float h = Mathf.Clamp01(0.5f + 0.5f * (d2 - d1) / k);
+        return Mathf.Lerp(d2, d1, h) - k * h * (1.0f - h);
     }
 }
