@@ -1302,6 +1302,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4825057561572391462, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
+      propertyPath: size
+      value: 15
+      objectReference: {fileID: 0}
+    - target: {fileID: 4825057561572391462, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
       propertyPath: gridSizeX
       value: 44
       objectReference: {fileID: 0}
@@ -1352,10 +1356,6 @@ PrefabInstance:
     - target: {fileID: 4825057561572391462, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
       propertyPath: voronoiSeedCount
       value: 6
-      objectReference: {fileID: 0}
-    - target: {fileID: 5279247859256628904, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
-      propertyPath: spacing
-      value: 3
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:
@@ -1615,6 +1615,14 @@ PrefabInstance:
     - target: {fileID: 4825057561572391462, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
       propertyPath: voronoiSeedCount
       value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5279247859256628904, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
+      propertyPath: spacingMultiplier
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5279247859256628904, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
+      propertyPath: minConnectionsPerNode
+      value: 3
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects:

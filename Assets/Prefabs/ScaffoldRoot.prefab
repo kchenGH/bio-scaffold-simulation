@@ -73,4 +73,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ScaffoldConnector
   scaffoldRoot: {fileID: 2505844419867282367}
   spacing: 1.5
+  spacingMultiplier: 1.6
   radiusMultiplier: 0.35
+  fixLongGaps: 1
+  minConnectionsPerNode: 3
+  maxNewConnectionsPerNode: 2
+  gapMultiplier: 1.2
+  searchRadiusMultiplier: 2.5
