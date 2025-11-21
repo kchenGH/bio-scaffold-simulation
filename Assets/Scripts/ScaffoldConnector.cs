@@ -7,9 +7,7 @@ public class ScaffoldConnector : MonoBehaviour
     public Transform scaffoldRoot; // parent for cylinders
     public float spacing = 1.0f; // set by ScaffoldGenerator
     public float radiusMultiplier = 0.45f; // thickness of struts
-
     private List<Transform> nodes = new List<Transform>();
-    private List<(Transform node1, Transform node2, float radius)> connections = new List<(Transform, Transform, float)>();
 
     // ---------------------------------------
     // Called by ScaffoldGenerator
@@ -29,8 +27,6 @@ public class ScaffoldConnector : MonoBehaviour
     // -------------------------------------------------------------
     public void BuildStruts()
     {
-        connections.Clear(); // Clear old connections
-        
         float maxDist = spacing * 1.6f;
         float cylRadius = spacing * radiusMultiplier;
 
@@ -45,25 +41,17 @@ public class ScaffoldConnector : MonoBehaviour
 
                 if (dist <= maxDist)
                 {
-                    // DISABLE visual cylinder creation - mesh will handle it
-                    // CreateCylinderBetween(a, b, cylRadius);
-                    
-                    // Store connection data for mesh generation
-                    connections.Add((nodes[i], nodes[j], cylRadius));
+                    CreateCylinderBetween(a, b, cylRadius);
                 }
             }
         }
-        
-        Debug.Log($"Stored {connections.Count} cylinder connections for mesh generation");
     }
 
     // -------------------------------------------------------------
-    // Create cylinder connecting two spheres (DISABLED FOR MESH MODE)
+    // Create cylinder connecting two spheres
     // -------------------------------------------------------------
     private void CreateCylinderBetween(Vector3 a, Vector3 b, float radius)
     {
-        // COMMENTED OUT - Using marching cubes mesh instead
-        /*
         Vector3 mid = (a + b) * 0.5f;
         Vector3 dir = (b - a);
         float length = dir.magnitude;
@@ -78,7 +66,6 @@ public class ScaffoldConnector : MonoBehaviour
 
         // Optional: remove collider for performance
         Destroy(cyl.GetComponent<Collider>());
-        */
     }
 
     // -------------------------------------------------------------
@@ -92,26 +79,5 @@ public class ScaffoldConnector : MonoBehaviour
                 Destroy(t.gameObject);
         }
         nodes.Clear();
-    }
-
-    /// <summary>
-    /// Export all cylinder strut data for mesh generation
-    /// </summary>
-    public List<(Vector3 start, Vector3 end, float radius)> GetCylinderData()
-    {
-        List<(Vector3 start, Vector3 end, float radius)> cylinders = new List<(Vector3 start, Vector3 end, float radius)>();
-        
-        foreach (var connection in connections)
-        {
-            if (connection.node1 != null && connection.node2 != null)
-            {
-                Vector3 start = connection.node1.position;
-                Vector3 end = connection.node2.position;
-                float radius = connection.radius;
-                cylinders.Add((start, end, radius));
-            }
-        }
-        
-        return cylinders;
     }
 }

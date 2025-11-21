@@ -1,3 +1,4 @@
+/*
 using UnityEngine;
 using UnityEngine.InputSystem; // new Input System
 using System.Collections.Generic;
@@ -370,3 +371,5 @@ public class MeshGenerator : MonoBehaviour
         return Mathf.Lerp(d2, d1, h) - k * h * (1.0f - h);
     }
 }
+
+*/

@@ -5,8 +5,8 @@ public class ScaffoldGenerator : MonoBehaviour
 {
     public GameObject nodePrefab;
     public Transform scaffoldRoot;
-
     public ScaffoldConnector connector;
+
 
     [Header("Collision")]
     public LayerMask obstacleMask;
@@ -28,9 +28,6 @@ public class ScaffoldGenerator : MonoBehaviour
     [Header("Jitter")]
     [Range(0f, 1f)]
     public float positionJitter = 0.3f;   // 0=no jitter, ~0.3 ideal
-
-    [Header("Mesh Generation")]
-    public MeshGenerator meshGenerator;
 
 
     void Start()
@@ -64,62 +61,49 @@ public class ScaffoldGenerator : MonoBehaviour
     {
         Vector3 origin = transform.position;
 
+        // --- Generate scaffold nodes ---
         for (int x = -size; x <= size; x++)
         for (int y = -size; y <= size; y++)
         for (int z = -size; z <= size; z++)
         {
             Vector3 worldPos = origin + new Vector3(x, y, z) * spacing;
 
-            // --- Add jitter to break grid artifacts ---
-            worldPos += Random.insideUnitSphere * spacing * positionJitter; 
+            // Add jitter to break grid patterns
+            worldPos += Random.insideUnitSphere * spacing * positionJitter;
 
             float n = Worley3D(worldPos * noiseScale);
 
             if (n > poreThreshold)
             {
-                // --- 1. Skip if inside a wall ---
+                // Skip inside walls
                 if (Physics.CheckSphere(worldPos, spacing * 0.45f, obstacleMask))
-                {
                     continue;
-                }
 
-                // --- 2. Optional: skip nodes behind walls ---
+                // Skip behind walls
                 if (blockBehindWalls)
                 {
                     Vector3 dir = (worldPos - origin).normalized;
 
                     if (Physics.Raycast(origin, dir, out RaycastHit hit, Vector3.Distance(origin, worldPos), obstacleMask))
-                    {
-                        // A wall blocks the path from the scaffold center to this point
                         continue;
-                    }
                 }
 
-                // --- Instantiate scaffold node ---
+                // --- Instantiate ONE scaffold node ---
                 var node = Instantiate(nodePrefab, worldPos, Quaternion.identity, scaffoldRoot);
+
+                // --- Add to connector ---
                 connector.AddNode(node.transform);
             }
         }
+
         // ============================================================
         // STEP 4: Now that ALL nodes are created, connect and remove
         // ============================================================
         connector.spacing = spacing;
-        connector.BuildStruts();    // create cylinder DATA (no GameObjects)
+        connector.BuildStruts();    // create cylinders
         connector.DeleteNodes();    // delete spheres
-        
-        // ============================================================
-        // STEP 5: Trigger mesh generation from cylinder data
-        // ============================================================
-        if (meshGenerator != null)
-        {
-            Debug.Log("Triggering mesh generation from scaffold data...");
-            meshGenerator.RegenerateFromScaffold();
-        }
-        else
-        {
-            Debug.LogWarning("MeshGenerator reference not set in ScaffoldGenerator!");
-        }
     }
+
 
     // --- 3D Worley Noise (Cellular Noise) ---
     float Worley3D(Vector3 p)
