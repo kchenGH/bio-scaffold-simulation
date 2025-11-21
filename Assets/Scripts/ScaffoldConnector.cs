@@ -4,11 +4,12 @@ using UnityEngine;
 public class ScaffoldConnector : MonoBehaviour
 {
     [Header("References")]
-    public Transform scaffoldRoot; // Parent for cylinders
-    public float spacing = 1.0f; // Set by ScaffoldGenerator
-    public float spacingMultiplier = 1.6f; // Max distance to connect nodes
-    public float radiusMultiplier = 0.45f; // Thickness of struts
-    [Header("Gap Fix / Connectivity")]
+    public Transform scaffoldRoot;          // Parent for cylinders
+    public float spacing = 1.0f;            // Set by ScaffoldGenerator
+    public float spacingMultiplier = 1.6f;  // Max distance to connect nodes
+    public float radiusMultiplier = 0.45f;  // Thickness of struts
+
+    [Header("Gap Fix / Local Connectivity")]
     [Tooltip("Try to detect under-connected nodes and add extra struts to nearby neighbors.")]
     public bool fixLongGaps = true;
 
@@ -28,8 +29,11 @@ public class ScaffoldConnector : MonoBehaviour
     [Tooltip("Detect disconnected clusters (islands) and connect each to the main network.")]
     public bool connectIslands = true;
 
-    [Tooltip("Maximum factor (relative to normal maxDist) used when searching for closest points between islands and main cluster. Set higher if islands can be far away.")]
+    [Tooltip("Maximum factor (relative to normal maxDist) used when searching for closest points between islands and main cluster.")]
     public float islandSearchRadiusMultiplier = 6.0f;
+
+    [Tooltip("How many separate bridge connections to create from each island into the main network.")]
+    public int islandBridgeCount = 2;
 
     // Internal list of scaffold nodes (sphere transforms)
     private readonly List<Transform> nodes = new List<Transform>();
@@ -67,7 +71,7 @@ public class ScaffoldConnector : MonoBehaviour
         }
 
         // -------------------------------------------------
-        // PASS 1: Original "distance-based" connections
+        // PASS 1: Basic distance-based connections
         // -------------------------------------------------
         for (int i = 0; i < count; i++)
         {
@@ -96,6 +100,7 @@ public class ScaffoldConnector : MonoBehaviour
 
         // -------------------------------------------------
         // PASS 3: Detect islands and connect them to main network
+        //        (with multi-bridge connections per island)
         // -------------------------------------------------
         if (connectIslands)
         {
@@ -131,7 +136,7 @@ public class ScaffoldConnector : MonoBehaviour
 
         for (int i = 0; i < count; i++)
         {
-            Vector3   nodePos  = nodes[i].position;
+            Vector3   nodePos   = nodes[i].position;
             List<int> neighList = neighbors[i];
 
             // 1) Find the current closest connected neighbor distance
@@ -251,8 +256,8 @@ public class ScaffoldConnector : MonoBehaviour
         HashSet<int> mainSet = new HashSet<int>(components[mainComponentIndex]);
 
         // 3) For each other component (island), connect it to the main component
-        float islandSearchRadiusSqr = maxDist * islandSearchRadiusMultiplier;
-        islandSearchRadiusSqr *= islandSearchRadiusSqr;
+        float islandSearchRadius    = maxDist * islandSearchRadiusMultiplier;
+        float islandSearchRadiusSqr = islandSearchRadius * islandSearchRadius;
 
         for (int c = 0; c < components.Count; c++)
         {
@@ -261,11 +266,10 @@ public class ScaffoldConnector : MonoBehaviour
             List<int> island = components[c];
             if (island.Count == 0) continue;
 
-            float bestDistSqr   = float.MaxValue;
-            int   bestIslandNode = -1;
-            int   bestMainNode   = -1;
+            // Collect candidate bridge edges between this island and the main component
+            List<(int islandIdx, int mainIdx, float distSqr)> candidates =
+                new List<(int islandIdx, int mainIdx, float distSqr)>();
 
-            // Brute-force search of closest pair between this island and main component
             for (int ii = 0; ii < island.Count; ii++)
             {
                 int islandIndex = island[ii];
@@ -276,25 +280,71 @@ public class ScaffoldConnector : MonoBehaviour
                     Vector3 mainPos = nodes[mainIndex].position;
                     float distSqr   = (islandPos - mainPos).sqrMagnitude;
 
-                    if (distSqr < bestDistSqr)
-                    {
-                        bestDistSqr    = distSqr;
-                        bestIslandNode = islandIndex;
-                        bestMainNode   = mainIndex;
-                    }
+                    if (distSqr > islandSearchRadiusSqr)
+                        continue;
+
+                    candidates.Add((islandIndex, mainIndex, distSqr));
                 }
             }
 
-            if (bestIslandNode == -1 || bestMainNode == -1)
+            if (candidates.Count == 0)
+            {
+                // If nothing was within the radius, relax: allow the single closest pair regardless of distance.
+                float bestDistSqr   = float.MaxValue;
+                int   bestIslandIdx = -1;
+                int   bestMainIdx   = -1;
+
+                for (int ii = 0; ii < island.Count; ii++)
+                {
+                    int islandIndex = island[ii];
+                    Vector3 islandPos = nodes[islandIndex].position;
+
+                    foreach (int mainIndex in mainSet)
+                    {
+                        Vector3 mainPos = nodes[mainIndex].position;
+                        float distSqr   = (islandPos - mainPos).sqrMagnitude;
+
+                        if (distSqr < bestDistSqr)
+                        {
+                            bestDistSqr   = distSqr;
+                            bestIslandIdx = islandIndex;
+                            bestMainIdx   = mainIndex;
+                        }
+                    }
+                }
+
+                if (bestIslandIdx != -1 && bestMainIdx != -1)
+                {
+                    if (!neighbors[bestIslandIdx].Contains(bestMainIdx))
+                        neighbors[bestIslandIdx].Add(bestMainIdx);
+                    if (!neighbors[bestMainIdx].Contains(bestIslandIdx))
+                        neighbors[bestMainIdx].Add(bestIslandIdx);
+                }
+
                 continue;
+            }
 
-            // Optionally enforce a maximum search radius; here we always connect,
-            // but you can restrict to bestDistSqr <= islandSearchRadiusSqr if desired.
-            if (!neighbors[bestIslandNode].Contains(bestMainNode))
-                neighbors[bestIslandNode].Add(bestMainNode);
+            // Sort by distance so we create the shortest bridges first
+            candidates.Sort((a, b) => a.distSqr.CompareTo(b.distSqr));
 
-            if (!neighbors[bestMainNode].Contains(bestIslandNode))
-                neighbors[bestMainNode].Add(bestIslandNode);
+            int bridgesCreated = 0;
+
+            foreach (var cand in candidates)
+            {
+                if (bridgesCreated >= islandBridgeCount)
+                    break;
+
+                int islandIdx = cand.islandIdx;
+                int mainIdx   = cand.mainIdx;
+
+                if (neighbors[islandIdx].Contains(mainIdx))
+                    continue;
+
+                neighbors[islandIdx].Add(mainIdx);
+                neighbors[mainIdx].Add(islandIdx);
+
+                bridgesCreated++;
+            }
         }
     }
 
@@ -308,7 +358,7 @@ public class ScaffoldConnector : MonoBehaviour
         float   length = dir.magnitude;
 
         GameObject cyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        cyl.transform.SetParent(scaffoldRoot);
+        cyl.transform.SetParent(scaffoldRoot, worldPositionStays: false);
 
         cyl.transform.position = mid;
         cyl.transform.rotation = Quaternion.FromToRotation(Vector3.up, dir);
