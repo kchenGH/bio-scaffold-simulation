@@ -47,8 +47,16 @@ MonoBehaviour:
   scaffoldRoot: {fileID: 2505844419867282367, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
   cellSize: 1
   padding: 2
+  autoInitFromScaffold: 1
+  maxWaitBeforeFallback: 1
+  fallbackSize: {x: 10, y: 10, z: 10}
   diffusionCoefficient: 1
   decayRate: 0
   simTimeStep: 0.02
+  maxTotalCells: 250000
+  maxStepsPerFrame: 2
+  autoAdjustCellSize: 1
   boundaryValue: 1
   drawFieldBounds: 1
+  logSample: 1
+  logEveryNSteps: 50

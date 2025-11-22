@@ -10,7 +10,7 @@ public class NutrientSimulator : MonoBehaviour
     [Tooltip("Root object whose children define the scaffold volume (used for bounds).")]
     public Transform scaffoldRoot;
 
-    [Tooltip("Size of each nutrient grid cell in world units (ideally ~scaffold spacing).")]
+    [Tooltip("Size of each nutrient grid cell in world units (ideally ~scaffold spacing). This is the MINIMUM cell size; it may be increased automatically for performance.")]
     public float cellSize = 1.0f;
 
     [Tooltip("Extra margin around scaffold bounds for the nutrient field.")]
@@ -35,6 +35,16 @@ public class NutrientSimulator : MonoBehaviour
 
     [Tooltip("Fixed time step for simulation (seconds).")]
     public float simTimeStep = 0.02f;
+
+    [Header("Performance")]
+    [Tooltip("Maximum total number of grid cells allowed (sizeX * sizeY * sizeZ). Higher values = slower simulation.")]
+    public int maxTotalCells = 250_000;
+
+    [Tooltip("Maximum simulation steps allowed per rendered frame.")]
+    public int maxStepsPerFrame = 2;
+
+    [Tooltip("Automatically increase cell size until total cells <= maxTotalCells.")]
+    public bool autoAdjustCellSize = true;
 
     [Header("Boundary Conditions")]
     [Tooltip("Concentration value enforced at the outer boundary cells of the field.")]
@@ -78,14 +88,24 @@ public class NutrientSimulator : MonoBehaviour
             }
         }
 
-        // 2) Run fixed-step simulation
+        // 2) Run fixed-step simulation with an upper bound on steps per frame
         if (Field == null) return;
 
         _accumulator += Time.deltaTime;
-        while (_accumulator >= simTimeStep)
+
+        int stepsThisFrame = 0;
+        while (_accumulator >= simTimeStep && stepsThisFrame < maxStepsPerFrame)
         {
             SimulateStep(simTimeStep);
             _accumulator -= simTimeStep;
+            stepsThisFrame++;
+        }
+
+        // If we had more accumulated time than we could process, just drop the excess
+        // to prevent runaway catch-up loops.
+        if (stepsThisFrame == maxStepsPerFrame && _accumulator > simTimeStep * 4f)
+        {
+            _accumulator = 0f;
         }
     }
 
@@ -112,7 +132,6 @@ public class NutrientSimulator : MonoBehaviour
         }
 
         // If we reach here, there are no renderers yet.
-        // Wait a bit in case the scaffold is generated in Start()/Awake() of other scripts.
         if (_timeSinceStart >= maxWaitBeforeFallback)
         {
             Vector3 center = scaffoldRoot != null ? scaffoldRoot.position : Vector3.zero;
@@ -141,20 +160,40 @@ public class NutrientSimulator : MonoBehaviour
 
     /// <summary>
     /// Create NutrientField using scaffold bounds + padding.
+    /// Automatically increases cell size if grid would exceed maxTotalCells.
     /// Outer boundary cells are set to boundaryValue so diffusion starts from there.
     /// </summary>
     private void InitializeField(Bounds regionBounds)
     {
-        Field = new NutrientField(regionBounds, cellSize, padding);
+        float effectiveCellSize = Mathf.Max(0.0001f, cellSize);
+        NutrientField candidate = null;
 
-        // Initial condition: everything zero
+        // Try a few times, increasing cell size if grid is too large
+        for (int attempt = 0; attempt < 8; attempt++)
+        {
+            candidate = new NutrientField(regionBounds, effectiveCellSize, padding);
+            long total = (long)candidate.sizeX * candidate.sizeY * candidate.sizeZ;
+
+            if (!autoAdjustCellSize || total <= maxTotalCells)
+            {
+                break;
+            }
+
+            // Increase cell size to reduce resolution and total cell count
+            effectiveCellSize *= 1.5f;
+        }
+
+        Field = candidate;
+        cellSize = Field.cellSize; // Reflect the actual value in inspector
+
         Field.Fill(0f);
-
-        // Outer boundary acts as the nutrient bath
         Field.SetBoundary(boundaryValue);
 
-        Debug.Log($"[NutrientSimulator] Field size: {Field.sizeX} x {Field.sizeY} x {Field.sizeZ}, " +
-                  $"cellSize={Field.cellSize}, padding={padding}, usedFallback={_usedFallbackBounds}");
+        long cellCount = (long)Field.sizeX * Field.sizeY * Field.sizeZ;
+
+        Debug.Log($"[NutrientSimulator] Field size: {Field.sizeX} x {Field.sizeY} x {Field.sizeZ} " +
+                  $"(total {cellCount} cells), cellSize={Field.cellSize:F3}, padding={padding}, " +
+                  $"usedFallback={_usedFallbackBounds}");
     }
 
     /// <summary>
@@ -181,7 +220,6 @@ public class NutrientSimulator : MonoBehaviour
         for (int y = 0; y < ny; y++)
         for (int z = 0; z < nz; z++)
         {
-            // Keep boundary cells fixed to boundaryValue
             bool isBoundary = (x == 0 || x == nx - 1 ||
                                y == 0 || y == ny - 1 ||
                                z == 0 || z == nz - 1);
@@ -201,7 +239,6 @@ public class NutrientSimulator : MonoBehaviour
 
             float center = c[x, y, z];
 
-            // 6-neighbor diffusion (simple finite-difference Laplacian)
             float xm = c[x - 1, y, z];
             float xp = c[x + 1, y, z];
             float ym = c[x, y - 1, z];
@@ -214,10 +251,9 @@ public class NutrientSimulator : MonoBehaviour
             float diffusionTerm = D * laplacian;
             float decayTerm = -k * center;
 
-            // Explicit Euler update
             float newValue = center + (diffusionTerm + decayTerm) * dt;
-
             if (newValue < 0f) newValue = 0f;
+
             next[x, y, z] = newValue;
         }
 
