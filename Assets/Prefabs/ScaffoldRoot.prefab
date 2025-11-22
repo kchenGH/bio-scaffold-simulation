@@ -57,7 +57,7 @@ MonoBehaviour:
   size: 25
   spacing: 1.5
   noiseScale: 0.16
-  poreThreshold: 0.75
+  poreThreshold: 0.66
   positionJitter: 0.55
 --- !u!114 &5279247859256628904
 MonoBehaviour:

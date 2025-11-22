@@ -21,9 +21,12 @@ public class ScaffoldGenerator : MonoBehaviour
     public float spacing = 1.0f;
 
     [Header("Porosity Noise")]
-    public float noiseScale = 0.1f;
+    public float noiseScale = 0.1f;          // base frequency of the Worley pattern
     [Range(0f, 1f)]
-    public float poreThreshold = 0.45f;
+    public float poreThreshold = 0.45f;      // porosity / wall thickness
+
+    [Range(0.5f, 2.0f)]
+    public float poreSize = 1.0f;            // <1 = smaller pores, >1 = larger pores
 
     [Header("Jitter")]
     [Range(0f, 1f)]
@@ -71,7 +74,10 @@ public class ScaffoldGenerator : MonoBehaviour
             // Add jitter to break grid patterns
             worldPos += Random.insideUnitSphere * spacing * positionJitter;
 
-            float n = Worley3D(worldPos * noiseScale);
+            // Effective scale: larger poreSize → lower frequency → bigger pores
+            float effectiveScale = noiseScale / poreSize;
+            float n = Worley3D(worldPos * effectiveScale);
+
 
             if (n > poreThreshold)
             {
