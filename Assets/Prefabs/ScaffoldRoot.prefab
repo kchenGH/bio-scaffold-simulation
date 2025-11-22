@@ -80,3 +80,11 @@ MonoBehaviour:
   maxNewConnectionsPerNode: 2
   gapMultiplier: 1.2
   searchRadiusMultiplier: 2.5
+  connectIslands: 1
+  islandSearchRadiusMultiplier: 6
+  islandBridgeCount: 5
+  closeLoops: 1
+  loopSearchRadiusMultiplier: 3
+  maxLoopConnectionsPerNode: 3
+  maxLoopGraphHops: 6
+  minGraphHopsToBridge: 3

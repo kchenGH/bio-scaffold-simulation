@@ -4,11 +4,10 @@ using UnityEngine;
 public class ScaffoldConnector : MonoBehaviour
 {
     [Header("References")]
-    public Transform scaffoldRoot;          // Parent for cylinders
-    public float spacing = 1.0f;            // Set by ScaffoldGenerator
-    public float spacingMultiplier = 1.6f;  // Max distance to connect nodes
-    public float radiusMultiplier = 0.45f;  // Thickness of struts
-
+    public Transform scaffoldRoot; // Parent for cylinders
+    public float spacing = 1.0f; // Set by ScaffoldGenerator
+    public float spacingMultiplier = 1.6f; // Max distance to connect nodes
+    public float radiusMultiplier = 0.45f; // Thickness of struts
     [Header("Gap Fix / Local Connectivity")]
     [Tooltip("Try to detect under-connected nodes and add extra struts to nearby neighbors.")]
     public bool fixLongGaps = true;
@@ -34,6 +33,22 @@ public class ScaffoldConnector : MonoBehaviour
 
     [Tooltip("How many separate bridge connections to create from each island into the main network.")]
     public int islandBridgeCount = 2;
+
+    [Header("Loop Closing / C-shape Fix")]
+    [Tooltip("Detect nodes that are close in space but far in the graph, and connect them to close C-shaped gaps.")]
+    public bool closeLoops = true;
+
+    [Tooltip("Radius factor (relative to maxDist) to search for potential loop-closing neighbors.")]
+    public float loopSearchRadiusMultiplier = 2.0f;
+
+    [Tooltip("Maximum number of loop-closing connections to add per node.")]
+    public int maxLoopConnectionsPerNode = 1;
+
+    [Tooltip("Maximum BFS depth when estimating graph distance between two nodes.")]
+    public int maxLoopGraphHops = 6;
+
+    [Tooltip("If graph distance between two nearby nodes is >= this many hops (or unreachable within maxLoopGraphHops), we add a loop-closing edge.")]
+    public int minGraphHopsToBridge = 3;
 
     // Internal list of scaffold nodes (sphere transforms)
     private readonly List<Transform> nodes = new List<Transform>();
@@ -108,7 +123,15 @@ public class ScaffoldConnector : MonoBehaviour
         }
 
         // -------------------------------------------------
-        // PASS 4: Actually create cylinders for each edge
+        // PASS 4: Close local loops / C-shaped gaps
+        // -------------------------------------------------
+        if (closeLoops)
+        {
+            CloseLocalLoops(neighbors, maxDist);
+        }
+
+        // -------------------------------------------------
+        // PASS 5: Actually create cylinders for each edge
         // -------------------------------------------------
         for (int i = 0; i < count; i++)
         {
@@ -346,6 +369,103 @@ public class ScaffoldConnector : MonoBehaviour
                 bridgesCreated++;
             }
         }
+    }
+
+    // -------------------------------------------------------------
+    // LOOP CLOSING: connect nodes close in space but far in graph
+    // -------------------------------------------------------------
+    private void CloseLocalLoops(List<int>[] neighbors, float maxDist)
+    {
+        int count = nodes.Count;
+        if (count == 0) return;
+
+        float loopRadius    = maxDist * loopSearchRadiusMultiplier;
+        float loopRadiusSqr = loopRadius * loopRadius;
+
+        for (int i = 0; i < count; i++)
+        {
+            Vector3 posI = nodes[i].position;
+            List<int> neighI = neighbors[i];
+
+            int added = 0;
+
+            // Gather candidates that are close in space but not neighbors
+            List<(int idx, float distSqr)> candidates = new List<(int idx, float distSqr)>();
+
+            for (int j = 0; j < count; j++)
+            {
+                if (j == i) continue;
+                if (neighI.Contains(j)) continue;
+
+                float distSqr = (nodes[j].position - posI).sqrMagnitude;
+                if (distSqr > loopRadiusSqr) continue;
+
+                candidates.Add((j, distSqr));
+            }
+
+            if (candidates.Count == 0)
+                continue;
+
+            // Sort by spatial distance
+            candidates.Sort((a, b) => a.distSqr.CompareTo(b.distSqr));
+
+            foreach (var cand in candidates)
+            {
+                if (added >= maxLoopConnectionsPerNode)
+                    break;
+
+                int j = cand.idx;
+
+                // Estimate graph distance between i and j
+                int hops = EstimateGraphDistance(i, j, neighbors, maxLoopGraphHops);
+
+                // If unreachable within depth, or too many hops, we close the loop
+                if (hops == -1 || hops >= minGraphHopsToBridge)
+                {
+                    neighI.Add(j);
+                    neighbors[j].Add(i);
+                    added++;
+                }
+            }
+        }
+    }
+
+    private int EstimateGraphDistance(int start, int target, List<int>[] neighbors, int maxDepth)
+    {
+        if (start == target) return 0;
+
+        int n = neighbors.Length;
+        bool[] visited = new bool[n];
+        Queue<(int node, int depth)> queue = new Queue<(int node, int depth)>();
+
+        visited[start] = true;
+        queue.Enqueue((start, 0));
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            int node  = current.node;
+            int depth = current.depth;
+
+            if (depth >= maxDepth)
+                continue;
+
+            List<int> neigh = neighbors[node];
+            for (int i = 0; i < neigh.Count; i++)
+            {
+                int next = neigh[i];
+                if (visited[next]) continue;
+
+                if (next == target)
+                    return depth + 1;
+
+                visited[next] = true;
+                queue.Enqueue((next, depth + 1));
+            }
+        }
+
+        // Not found within maxDepth
+        return -1;
     }
 
     // -------------------------------------------------------------
