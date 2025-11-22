@@ -16,6 +16,16 @@ public class NutrientSimulator : MonoBehaviour
     [Tooltip("Extra margin around scaffold bounds for the nutrient field.")]
     public float padding = 2.0f;
 
+    [Header("Initialization")]
+    [Tooltip("Wait until scaffoldRoot has renderers before creating the field.")]
+    public bool autoInitFromScaffold = true;
+
+    [Tooltip("If no renderers are found within this time, fall back to a default box.")]
+    public float maxWaitBeforeFallback = 1.0f;
+
+    [Tooltip("Size of the fallback box (only used if no scaffold renderers are found).")]
+    public Vector3 fallbackSize = new Vector3(10f, 10f, 10f);
+
     [Header("Physics Parameters")]
     [Tooltip("Diffusion coefficient D (larger = faster spreading).")]
     public float diffusionCoefficient = 1.0f;
@@ -27,48 +37,51 @@ public class NutrientSimulator : MonoBehaviour
     public float simTimeStep = 0.02f;
 
     [Header("Boundary Conditions")]
-    [Tooltip("Concentration value enforced at the outer boundary cells.")]
+    [Tooltip("Concentration value enforced at the outer boundary cells of the field.")]
     public float boundaryValue = 1.0f;
 
     [Header("Debug")]
     [Tooltip("Draw gizmo wireframe of the nutrient field bounds.")]
     public bool drawFieldBounds = true;
 
-        [Header("Debug Sampling")]
     [Tooltip("Log a sample concentration periodically to verify the sim is running.")]
-    public bool logSample = true;
+    public bool logSample = false;
 
     [Tooltip("How many simulation steps between log messages.")]
     public int logEveryNSteps = 50;
 
-    private int _stepCount = 0;
-
     public NutrientField Field { get; private set; }
 
     private float _accumulator;
+    private float _timeSinceStart;
+    private bool _fieldInitialized;
+    private bool _usedFallbackBounds;
+    private int _stepCount;
 
     private void Start()
     {
-        if (scaffoldRoot == null)
-        {
-            Debug.LogWarning("[NutrientSimulator] No scaffoldRoot assigned. Using a default region around (0,0,0).");
-            Bounds defaultBounds = new Bounds(Vector3.zero, Vector3.one * 10f);
-            InitializeField(defaultBounds);
-        }
-        else
-        {
-            Bounds scaffoldBounds = ComputeBoundsFromRoot(scaffoldRoot);
-            InitializeField(scaffoldBounds);
-        }
+        _timeSinceStart = 0f;
     }
 
     private void Update()
     {
+        _timeSinceStart += Time.deltaTime;
+
+        // 1) Make sure the field exists and is sized correctly
+        if (!_fieldInitialized)
+        {
+            TryInitializeField();
+            if (!_fieldInitialized)
+            {
+                // Still waiting for scaffold / fallback; do not simulate yet.
+                return;
+            }
+        }
+
+        // 2) Run fixed-step simulation
         if (Field == null) return;
 
         _accumulator += Time.deltaTime;
-
-        // Fixed-step simulation
         while (_accumulator >= simTimeStep)
         {
             SimulateStep(simTimeStep);
@@ -77,29 +90,58 @@ public class NutrientSimulator : MonoBehaviour
     }
 
     /// <summary>
-    /// Compute an axis-aligned bounding box from all Renderers under a root transform.
+    /// Attempt to initialize the field from scaffold renderers.
+    /// If none are found and enough time has passed, fall back to a default box.
     /// </summary>
-    private Bounds ComputeBoundsFromRoot(Transform root)
+    private void TryInitializeField()
     {
-        var renderers = root.GetComponentsInChildren<Renderer>();
-
-        if (renderers.Length == 0)
+        if (scaffoldRoot != null)
         {
-            // Fallback: small cube around root if no renderers are found
-            return new Bounds(root.position, Vector3.one * 10f);
+            var renderers = scaffoldRoot.GetComponentsInChildren<Renderer>();
+
+            if (renderers.Length > 0)
+            {
+                Bounds scaffoldBounds = ComputeBoundsFromRenderers(renderers);
+                InitializeField(scaffoldBounds);
+                _fieldInitialized = true;
+                _usedFallbackBounds = false;
+
+                Debug.Log($"[NutrientSimulator] Initialized field from scaffold bounds at t={_timeSinceStart:F2}s.");
+                return;
+            }
         }
 
+        // If we reach here, there are no renderers yet.
+        // Wait a bit in case the scaffold is generated in Start()/Awake() of other scripts.
+        if (_timeSinceStart >= maxWaitBeforeFallback)
+        {
+            Vector3 center = scaffoldRoot != null ? scaffoldRoot.position : Vector3.zero;
+            Bounds defaultBounds = new Bounds(center, fallbackSize);
+            InitializeField(defaultBounds);
+            _fieldInitialized = true;
+            _usedFallbackBounds = true;
+
+            Debug.LogWarning("[NutrientSimulator] No scaffold renderers found in time. " +
+                             "Using fallback bounds instead.");
+        }
+    }
+
+    /// <summary>
+    /// Compute an axis-aligned bounding box from a set of renderers.
+    /// </summary>
+    private Bounds ComputeBoundsFromRenderers(Renderer[] renderers)
+    {
         Bounds bounds = renderers[0].bounds;
         for (int i = 1; i < renderers.Length; i++)
         {
             bounds.Encapsulate(renderers[i].bounds);
         }
-
         return bounds;
     }
 
     /// <summary>
     /// Create NutrientField using scaffold bounds + padding.
+    /// Outer boundary cells are set to boundaryValue so diffusion starts from there.
     /// </summary>
     private void InitializeField(Bounds regionBounds)
     {
@@ -108,15 +150,16 @@ public class NutrientSimulator : MonoBehaviour
         // Initial condition: everything zero
         Field.Fill(0f);
 
-        // Outer boundary is a nutrient-rich bath
+        // Outer boundary acts as the nutrient bath
         Field.SetBoundary(boundaryValue);
 
-        Debug.Log($"[NutrientSimulator] Initialized field: " +
-                  $"{Field.sizeX} x {Field.sizeY} x {Field.sizeZ} cells, cellSize={Field.cellSize}");
+        Debug.Log($"[NutrientSimulator] Field size: {Field.sizeX} x {Field.sizeY} x {Field.sizeZ}, " +
+                  $"cellSize={Field.cellSize}, padding={padding}, usedFallback={_usedFallbackBounds}");
     }
 
     /// <summary>
     /// Single simulation step: diffusion + decay + re-enforce boundary.
+    /// Nutrients start from the outer boundary cells and diffuse inward.
     /// </summary>
     private void SimulateStep(float dt)
     {
@@ -174,23 +217,19 @@ public class NutrientSimulator : MonoBehaviour
             // Explicit Euler update
             float newValue = center + (diffusionTerm + decayTerm) * dt;
 
-            // Clamp to non-negative (nutrients can't go below 0)
             if (newValue < 0f) newValue = 0f;
-
             next[x, y, z] = newValue;
         }
 
-        // Swap buffers for next frame
         Field.SwapBuffers();
 
-        // --- Debug: log a sample cell to see if things change over time ---
+        // Optional debug logging of a sample cell
         _stepCount++;
         if (logSample && logEveryNSteps > 0 && (_stepCount % logEveryNSteps == 0))
         {
             int cx = Field.sizeX / 2;
             int cy = Field.sizeY / 2;
             int cz = Field.sizeZ / 2;
-
             float center = Field.Concentration[cx, cy, cz];
             Debug.Log($"[NutrientSimulator] Step {_stepCount}, center concentration = {center:F4}");
         }
@@ -200,7 +239,6 @@ public class NutrientSimulator : MonoBehaviour
     {
         if (!drawFieldBounds || Field == null) return;
 
-        // Approximate bounds for debug visualization
         int nx = Field.sizeX;
         int ny = Field.sizeY;
         int nz = Field.sizeZ;
