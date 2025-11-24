@@ -52,11 +52,11 @@ MonoBehaviour:
   fallbackSize: {x: 10, y: 10, z: 10}
   diffusionCoefficient: 1
   decayRate: 0
-  simTimeStep: 0.02
-  maxTotalCells: 250000
-  maxStepsPerFrame: 2
+  simTimeStep: 0.05
+  maxTotalCells: 10000
+  maxStepsPerFrame: 1
   autoAdjustCellSize: 1
   boundaryValue: 1
   drawFieldBounds: 1
   logSample: 1
-  logEveryNSteps: 50
+  logEveryNSteps: 10

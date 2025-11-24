@@ -30,7 +30,8 @@ public class NutrientSimulator : MonoBehaviour
     [Tooltip("Diffusion coefficient D (larger = faster spreading).")]
     public float diffusionCoefficient = 1.0f;
 
-    [Tooltip("First-order decay rate (0 = no decay).")]
+    [Range(0f, 0.1f)]
+    [Tooltip("First-order decay rate (0 = no decay, 0.1 = very fast decay).")]
     public float decayRate = 0.0f;
 
     [Tooltip("Fixed time step for simulation (seconds).")]
@@ -269,6 +270,41 @@ public class NutrientSimulator : MonoBehaviour
             float center = Field.Concentration[cx, cy, cz];
             Debug.Log($"[NutrientSimulator] Step {_stepCount}, center concentration = {center:F4}");
         }
+    }
+
+    /// <summary>
+    /// Rebuild the nutrient field using the current scaffold geometry.
+    /// Call this AFTER you regenerate the scaffold.
+    /// </summary>
+    public void RegenerateFieldFromScaffold()
+        {
+        if (scaffoldRoot == null)
+        {
+        Debug.LogWarning("[NutrientSimulator] Cannot regenerate: scaffoldRoot is null.");
+        return;
+        }
+        var renderers = scaffoldRoot.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0)
+        {
+            Debug.LogWarning("[NutrientSimulator] Cannot regenerate: no renderers found under scaffoldRoot.");
+            return;
+        }
+
+        // Compute fresh bounds from the newly generated scaffold
+        Bounds scaffoldBounds = ComputeBoundsFromRenderers(renderers);
+
+        // Reset internal state
+        _timeSinceStart = 0f;
+        _accumulator = 0f;
+        _stepCount = 0;
+        _usedFallbackBounds = false;
+        _fieldInitialized = false;
+
+        // Build a new field around the new scaffold
+        InitializeField(scaffoldBounds);
+        _fieldInitialized = true;
+
+        Debug.Log("[NutrientSimulator] Regenerated nutrient field from current scaffold.");
     }
 
     private void OnDrawGizmosSelected()

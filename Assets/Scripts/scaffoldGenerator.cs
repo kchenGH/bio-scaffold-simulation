@@ -6,6 +6,7 @@ public class ScaffoldGenerator : MonoBehaviour
     public GameObject nodePrefab;
     public Transform scaffoldRoot;
     public ScaffoldConnector connector;
+    public NutrientSimulator nutrientSimulator;
 
 
     [Header("Collision")]
@@ -42,9 +43,15 @@ public class ScaffoldGenerator : MonoBehaviour
     {
         if (!enableRegenerationHotkey) return;
 
-        if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
+        if (Input.GetKeyDown(KeyCode.Return))
         {
-            RegenerateScaffold();
+            RegenerateScaffold();       // your existing scaffold regen
+
+            // After scaffold is regenerated, rebuild the nutrient field
+            if (nutrientSimulator != null)
+            {
+                nutrientSimulator.RegenerateFieldFromScaffold();
+            }
         }
     }
 
