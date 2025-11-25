@@ -43,11 +43,9 @@ public class ScaffoldGenerator : MonoBehaviour
     {
         if (!enableRegenerationHotkey) return;
 
-        if (Input.GetKeyDown(KeyCode.Return))
+        if (Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
         {
-            RegenerateScaffold();       // your existing scaffold regen
-
-            // After scaffold is regenerated, rebuild the nutrient field
+            RegenerateScaffold();
             if (nutrientSimulator != null)
             {
                 nutrientSimulator.RegenerateFieldFromScaffold();

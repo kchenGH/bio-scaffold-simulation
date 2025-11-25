@@ -48,6 +48,7 @@ MonoBehaviour:
   nodePrefab: {fileID: 8118393971954460908, guid: 93c0393597ad48d4191a20e37e3132d1, type: 3}
   scaffoldRoot: {fileID: 2505844419867282367}
   connector: {fileID: 5279247859256628904}
+  nutrientSimulator: {fileID: 6918572112988608999, guid: f7655c444f5692e44a7dfbc8a2af0e59, type: 3}
   obstacleMask:
     serializedVersion: 2
     m_Bits: 8
@@ -58,6 +59,7 @@ MonoBehaviour:
   spacing: 1.5
   noiseScale: 0.16
   poreThreshold: 0.66
+  poreSize: 1
   positionJitter: 0.55
 --- !u!114 &5279247859256628904
 MonoBehaviour:

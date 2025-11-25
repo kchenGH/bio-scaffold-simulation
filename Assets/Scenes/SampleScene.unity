@@ -1423,6 +1423,10 @@ PrefabInstance:
       propertyPath: voronoiSeedCount
       value: 6
       objectReference: {fileID: 0}
+    - target: {fileID: 4825057561572391462, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
+      propertyPath: nutrientSimulator
+      value: 
+      objectReference: {fileID: 271179651}
     m_RemovedComponents: []
     m_RemovedGameObjects:
     - {fileID: 6731224982354818048, guid: 27672f3cf0c9a2444b1fef8ba0a55b68, type: 3}
@@ -1563,10 +1567,6 @@ PrefabInstance:
       propertyPath: scaffoldRoot
       value: 
       objectReference: {fileID: 1398539693}
-    - target: {fileID: 6918572112988608999, guid: f7655c444f5692e44a7dfbc8a2af0e59, type: 3}
-      propertyPath: logEveryNSteps
-      value: 10
-      objectReference: {fileID: 0}
     - target: {fileID: 6984725138474765948, guid: f7655c444f5692e44a7dfbc8a2af0e59, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -1609,7 +1609,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7291636856628411433, guid: f7655c444f5692e44a7dfbc8a2af0e59, type: 3}
       propertyPath: m_Name
-      value: NutrientSimulation
+      value: NutrientSimulator
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -51,4 +51,4 @@ MonoBehaviour:
   lowColor: {r: 0, g: 0, b: 1, a: 1}
   midColor: {r: 0, g: 1, b: 0, a: 1}
   highColor: {r: 1, g: 0, b: 0, a: 1}
-  updateInterval: 0.1
+  colorUpdatesPerSecond: 0.5

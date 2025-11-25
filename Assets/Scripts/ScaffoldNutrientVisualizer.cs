@@ -10,7 +10,6 @@ public class ScaffoldNutrientVisualizer : MonoBehaviour
     [Header("References")]
     [Tooltip("Nutrient simulator that owns the NutrientField.")]
     public NutrientSimulator simulator;
-
     [Tooltip("Root transform containing all scaffold renderers.")]
     public Transform scaffoldRoot;
 
@@ -31,8 +30,9 @@ public class ScaffoldNutrientVisualizer : MonoBehaviour
     public Color highColor = Color.red;
 
     [Header("Update Settings")]
-    [Tooltip("How often to update colors (seconds).")]
-    public float updateInterval = 0.1f;
+    [Tooltip("How many times per second to update scaffold colors. 0 = no updates (coloring disabled).")]
+    [Range(0f, 60f)]
+    public float colorUpdatesPerSecond = 4f;
 
     private Renderer[] _renderers;
     private float _timer;
@@ -69,6 +69,15 @@ public class ScaffoldNutrientVisualizer : MonoBehaviour
         RefreshRenderers();
     }
 
+    /// <summary>
+    /// Public method so external scripts (e.g., scaffold generator) can force a refresh
+    /// after the scaffold has been regenerated.
+    /// </summary>
+    public void RegenerateRendererList()
+    {
+        RefreshRenderers();
+    }
+
     private void RefreshRenderers()
     {
         if (scaffoldRoot == null) return;
@@ -83,16 +92,38 @@ public class ScaffoldNutrientVisualizer : MonoBehaviour
         if (simulator == null || simulator.Field == null)
             return;
 
-        // If scaffold was generated after Start(), refresh once we detect nothing
-        if ((_renderers == null || _renderers.Length == 0) && scaffoldRoot != null)
+        // If coloring is disabled, do nothing
+        if (colorUpdatesPerSecond <= 0f)
+            return;
+
+        // Ensure we have a valid renderer list:
+        // - If it's null/empty, try to populate it.
+        // - If it contains destroyed entries (null), refresh it once.
+        if (_renderers == null || _renderers.Length == 0)
         {
             RefreshRenderers();
-            if (_renderers == null || _renderers.Length == 0)
+            if (_renderers == null || _renderers.Length == 0) return;
+        }
+        else
+        {
+            bool needsRefresh = false;
+            for (int i = 0; i < _renderers.Length; i++)
             {
-                // Still nothing; nothing to color this frame.
-                return;
+                if (_renderers[i] == null)
+                {
+                    needsRefresh = true;
+                    break;
+                }
+            }
+
+            if (needsRefresh)
+            {
+                RefreshRenderers();
+                if (_renderers == null || _renderers.Length == 0) return;
             }
         }
+
+        float updateInterval = 1f / colorUpdatesPerSecond;
 
         _timer += Time.deltaTime;
         if (_timer < updateInterval) return;
