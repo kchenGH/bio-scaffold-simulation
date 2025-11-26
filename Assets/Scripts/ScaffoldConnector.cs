@@ -485,12 +485,14 @@ public class ScaffoldConnector : MonoBehaviour
 
         cyl.transform.localScale = new Vector3(radius, length * 0.5f, radius);
 
+        /*Keep collider for raycast for now
         // Optional: remove collider for performance
         Collider col = cyl.GetComponent<Collider>();
         if (col != null)
         {
             Destroy(col);
         }
+        */
     }
 
     // -------------------------------------------------------------
