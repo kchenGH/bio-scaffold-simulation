@@ -10,6 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 6984725138474765948}
   - component: {fileID: 6918572112988608999}
+  - component: {fileID: 8248334754369164598}
+  - component: {fileID: 6218092038702921350}
   m_Layer: 0
   m_Name: NutrientSimulator
   m_TagString: Untagged
@@ -60,3 +62,30 @@ MonoBehaviour:
   drawFieldBounds: 1
   logSample: 1
   logEveryNSteps: 10
+--- !u!114 &8248334754369164598
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7291636856628411433}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4008b1fd34ee03b4a9cbb2201775fcb0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NutrientFieldAdapter
+  simulator: {fileID: 6918572112988608999}
+--- !u!114 &6218092038702921350
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7291636856628411433}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: df0ba492ea5a205429debff43f533665, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ScaffoldMaskAdapter
+  simulator: {fileID: 6918572112988608999}
+  selection: 1
