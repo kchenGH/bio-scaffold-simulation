@@ -63,6 +63,8 @@ public class NutrientSimulator : MonoBehaviour
 
     public NutrientField Field { get; private set; }
 
+    public bool FieldReady => Field != null;
+
     private float _accumulator;
     private float _timeSinceStart;
     private bool _fieldInitialized;
@@ -321,5 +323,18 @@ public class NutrientSimulator : MonoBehaviour
 
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireCube(min + size * 0.5f, size);
+    }
+
+    // "Simulation time" based on fixed steps (more stable than Time.time)
+    public float SimulatedTime => _stepCount * simTimeStep;
+
+    public float GetCenterConcentration()
+    {
+        if (Field == null) return 0f;
+        int cx = Field.sizeX / 2;
+        int cy = Field.sizeY / 2;
+        int cz = Field.sizeZ / 2;
+
+        return Field.Concentration[cx, cy, cz];
     }
 }
